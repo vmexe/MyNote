@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use chrono::Local;
 use gtk4::prelude::*;
@@ -73,7 +73,7 @@ pub struct MyNoteWindow {
     filter_mode: FilterMode,
     search_query: String,
     view_mode: ViewMode,
-    is_updating_ui: bool,
+    is_updating_ui: Rc<Cell<bool>>,
     save_timeout: Option<glib::SourceId>,
 }
 
@@ -544,7 +544,7 @@ impl MyNoteWindow {
             filter_mode: FilterMode::All,
             search_query: String::new(),
             view_mode: initial_view_mode,
-            is_updating_ui: false,
+            is_updating_ui: Rc::new(Cell::new(false)),
             save_timeout: None,
         }));
 
@@ -741,7 +741,11 @@ impl MyNoteWindow {
         // Pin Toggle Button
         {
             let h = handle.clone();
+            let guard = handle.borrow().is_updating_ui.clone();
             handle.borrow().pin_btn.connect_toggled(move |btn| {
+                if guard.get() {
+                    return;
+                }
                 let active = btn.is_active();
                 h.borrow_mut().set_active_note_pinned(active);
             });
@@ -779,7 +783,11 @@ impl MyNoteWindow {
         // View Mode Toggle Buttons
         {
             let h = handle.clone();
+            let guard = handle.borrow().is_updating_ui.clone();
             handle.borrow().view_edit_btn.connect_toggled(move |btn| {
+                if guard.get() {
+                    return;
+                }
                 if btn.is_active() {
                     h.borrow_mut().set_view_mode(ViewMode::Edit);
                 }
@@ -787,7 +795,11 @@ impl MyNoteWindow {
         }
         {
             let h = handle.clone();
+            let guard = handle.borrow().is_updating_ui.clone();
             handle.borrow().view_preview_btn.connect_toggled(move |btn| {
+                if guard.get() {
+                    return;
+                }
                 if btn.is_active() {
                     h.borrow_mut().set_view_mode(ViewMode::Preview);
                 }
@@ -795,7 +807,11 @@ impl MyNoteWindow {
         }
         {
             let h = handle.clone();
+            let guard = handle.borrow().is_updating_ui.clone();
             handle.borrow().view_split_btn.connect_toggled(move |btn| {
+                if guard.get() {
+                    return;
+                }
                 if btn.is_active() {
                     h.borrow_mut().set_view_mode(ViewMode::Split);
                 }
@@ -805,8 +821,9 @@ impl MyNoteWindow {
         // Note Title Entry Edited
         {
             let h = handle.clone();
+            let guard = handle.borrow().is_updating_ui.clone();
             handle.borrow().title_entry.connect_changed(move |entry| {
-                if h.borrow().is_updating_ui {
+                if guard.get() {
                     return;
                 }
                 let title = entry.text().to_string();
@@ -817,8 +834,9 @@ impl MyNoteWindow {
         // Note Tags Entry Edited
         {
             let h = handle.clone();
+            let guard = handle.borrow().is_updating_ui.clone();
             handle.borrow().tags_entry.connect_changed(move |entry| {
-                if h.borrow().is_updating_ui {
+                if guard.get() {
                     return;
                 }
                 let tags_str = entry.text().to_string();
@@ -829,8 +847,9 @@ impl MyNoteWindow {
         // TextBuffer Content Edited
         {
             let h = handle.clone();
+            let guard = handle.borrow().is_updating_ui.clone();
             handle.borrow().text_buffer.connect_changed(move |buf| {
-                if h.borrow().is_updating_ui {
+                if guard.get() {
                     return;
                 }
                 let start = buf.start_iter();
@@ -843,8 +862,9 @@ impl MyNoteWindow {
         // Notes List Row Selected
         {
             let h = handle.clone();
+            let guard = handle.borrow().is_updating_ui.clone();
             handle.borrow().notes_listbox.connect_row_selected(move |_, row_opt| {
-                if h.borrow().is_updating_ui {
+                if guard.get() {
                     return;
                 }
                 if let Some(row) = row_opt {
@@ -1054,6 +1074,7 @@ impl MyNoteWindow {
     }
 
     pub fn set_view_mode(&mut self, mode: ViewMode) {
+        self.is_updating_ui.set(true);
         self.view_mode = mode;
         self.view_edit_btn.set_active(mode == ViewMode::Edit);
         self.view_preview_btn.set_active(mode == ViewMode::Preview);
@@ -1087,6 +1108,8 @@ impl MyNoteWindow {
                 self.update_preview_content();
             }
         }
+
+        self.is_updating_ui.set(false);
     }
 
     pub fn create_new_note(&mut self) {
@@ -1462,7 +1485,7 @@ impl MyNoteWindow {
     }
 
     fn refresh_sidebar_note_items(&mut self) {
-        self.is_updating_ui = true;
+        self.is_updating_ui.set(true);
 
         // Clear existing rows
         while let Some(row) = self.notes_listbox.first_child() {
@@ -1541,11 +1564,11 @@ impl MyNoteWindow {
             self.notes_listbox.select_row(Some(&r));
         }
 
-        self.is_updating_ui = false;
+        self.is_updating_ui.set(false);
     }
 
     pub fn refresh_editor(&mut self) {
-        self.is_updating_ui = true;
+        self.is_updating_ui.set(true);
 
         if let Some(note) = self.active_note() {
             self.editor_container.set_visible(true);
@@ -1586,7 +1609,7 @@ impl MyNoteWindow {
             self.delete_perm_btn.set_visible(false);
         }
 
-        self.is_updating_ui = false;
+        self.is_updating_ui.set(false);
     }
 
     fn update_stats(&self) {
