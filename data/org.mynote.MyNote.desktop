@@ -1,0 +1,19 @@
+#!/usr/bin/env xdg-open
+[Desktop Entry]
+Name=MyNote
+Comment=Fast, elegant, and super easy-to-use native note-taking app for Linux
+GenericName=Note Taking Application
+Exec=mynote %U
+Icon=org.mynote.MyNote
+Terminal=false
+Type=Application
+Categories=Utility;TextEditor;Office;GTK;GNOME;
+Keywords=Note;Text;Editor;Markdown;Memo;Organizer;Task;
+StartupNotify=true
+StartupWMClass=org.mynote.MyNote
+MimeType=text/plain;text/markdown;
+Actions=NewNote;
+
+[Desktop Action NewNote]
+Name=New Note
+Exec=mynote --new-note

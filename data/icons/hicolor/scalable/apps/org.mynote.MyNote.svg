@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg-grad" x1="16" y1="16" x2="112" y2="112" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3584E4"/>
+      <stop offset="100%" stop-color="#1C71D8"/>
+    </linearGradient>
+    <linearGradient id="fold-grad" x1="84" y1="16" x2="112" y2="44" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#62A0EA"/>
+      <stop offset="100%" stop-color="#3584E4"/>
+    </linearGradient>
+    <linearGradient id="pen-grad" x1="70" y1="70" x2="110" y2="110" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F6D32D"/>
+      <stop offset="100%" stop-color="#E5A50A"/>
+    </linearGradient>
+    <filter id="shadow" x="10" y="12" width="108" height="108" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <!-- Note Body with Rounded Corners and Fold -->
+  <g filter="url(#shadow)">
+    <!-- Base Note Page -->
+    <path d="M 24 16 L 84 16 L 108 40 L 108 108 A 12 12 0 0 1 96 120 L 24 120 A 12 12 0 0 1 12 108 L 12 28 A 12 12 0 0 1 24 16 Z" fill="white"/>
+    
+    <!-- Top folded corner -->
+    <path d="M 84 16 L 84 36 A 4 4 0 0 0 88 40 L 108 40 Z" fill="#DEDDDA"/>
+    
+    <!-- Note decorative header band -->
+    <path d="M 24 16 L 84 16 L 84 40 L 12 40 L 12 28 A 12 12 0 0 1 24 16 Z" fill="url(#bg-grad)"/>
+
+    <!-- Note lines -->
+    <!-- Line 1 (Heading) -->
+    <rect x="24" y="52" width="48" height="6" rx="3" fill="#3584E4"/>
+    <!-- Line 2 -->
+    <rect x="24" y="66" width="60" height="4" rx="2" fill="#9A9996"/>
+    <!-- Line 3 -->
+    <rect x="24" y="78" width="52" height="4" rx="2" fill="#9A9996"/>
+    <!-- Line 4 -->
+    <rect x="24" y="90" width="44" height="4" rx="2" fill="#9A9996"/>
+    <!-- Checkbox 1 -->
+    <rect x="24" y="102" width="6" height="6" rx="1.5" fill="#57E389"/>
+    <rect x="34" y="103" width="30" height="4" rx="2" fill="#77767B"/>
+
+    <!-- Stylish Pen Badge in bottom right -->
+    <g transform="translate(4, 4)">
+      <!-- Pen body shadow -->
+      <circle cx="94" cy="94" r="22" fill="#1C71D8" opacity="0.15"/>
+      <circle cx="94" cy="94" r="18" fill="url(#bg-grad)"/>
+      
+      <!-- Pen Icon Inside Circle -->
+      <path d="M 98 84 L 103 89 L 90 102 L 85 102 L 85 97 L 98 84 Z" fill="#FFFFFF"/>
+      <path d="M 99 83 L 102 80 A 1.5 1.5 0 0 1 104 80 L 107 83 A 1.5 1.5 0 0 1 107 85 L 104 88 L 99 83 Z" fill="url(#pen-grad)"/>
+      <polygon points="85,102 85,99 88,102" fill="#333333"/>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.mynote.MyNote</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>MyNote</name>
+  <summary>A fast, lightweight, and super easy-to-use native Linux note-taking application</summary>
+  
+  <description>
+    <p>
+      MyNote is a distraction-free, super-fast, and open-source note-taking application built natively for Linux using Rust, GTK4, and Libadwaita.
+    </p>
+    <p>Features include:</p>
+    <ul>
+      <li>Instant startup and ultra-low resource usage</li>
+      <li>Instant automatic saving with zero data loss</li>
+      <li>Live Markdown preview and split-view editing</li>
+      <li>Tags, pinning / favorites, and full-text instant search</li>
+      <li>Markdown formatting toolbar and extensive keyboard shortcuts</li>
+      <li>Trash bin protection with restore capability</li>
+      <li>Export and import for Markdown (.md) and Plain Text (.txt)</li>
+      <li>Native GNOME / Linux desktop integration</li>
+    </ul>
+  </description>
+  
+  <launchable type="desktop-id">org.mynote.MyNote.desktop</launchable>
+  <url type="homepage">https://github.com/mynote/mynote</url>
+  <url type="bugtracker">https://github.com/mynote/mynote/issues</url>
+  
+  <provides>
+    <binary>mynote</binary>
+  </provides>
+
+  <releases>
+    <release version="1.0.0" date="2026-08-29">
+      <description>
+        <p>Initial stable open-source release of MyNote for Linux.</p>
+      </description>
+    </release>
+  </releases>
+</component>
