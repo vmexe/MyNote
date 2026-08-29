@@ -6,7 +6,7 @@ pub fn show_about_dialog(parent: &adw::ApplicationWindow) {
         .application_name("MyNote")
         .application_icon("org.mynote.MyNote")
         .developer_name("MyNote Open Source Contributors")
-        .version("1.0.0")
+        .version("1.0.2")
         .comments("A fast, lightweight, and super easy-to-use native Linux note-taking app built with Rust, GTK4, and Libadwaita.")
         .website("https://github.com/mynote/mynote")
         .issue_url("https://github.com/mynote/mynote/issues")

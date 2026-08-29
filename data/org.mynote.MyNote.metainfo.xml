@@ -32,6 +32,11 @@
   </provides>
 
   <releases>
+    <release version="1.0.2" date="2026-08-29">
+      <description>
+        <p>Fixed crashes triggered by the pin/format actions and fast typing, and added robust CLI argument handling for --new-note.</p>
+      </description>
+    </release>
     <release version="1.0.0" date="2026-08-29">
       <description>
         <p>Initial stable open-source release of MyNote for Linux.</p>

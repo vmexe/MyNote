@@ -1,3 +1,5 @@
+use std::cell::Cell;
+use std::rc::Rc;
 use gtk4::gdk::Display;
 use gtk4::prelude::*;
 use libadwaita as adw;
@@ -5,6 +7,12 @@ use crate::ui::window::MyNoteWindow;
 
 pub const APP_ID: &str = "org.mynote.MyNote";
 const STYLE_CSS: &str = include_str!("../data/style.css");
+
+#[derive(Default, Clone)]
+struct CliOptions {
+    start_new_note: bool,
+    stress_rounds: u32,
+}
 
 pub struct MyNoteApp {
     app: adw::Application,
@@ -14,22 +22,65 @@ impl MyNoteApp {
     pub fn new() -> Self {
         let app = adw::Application::builder()
             .application_id(APP_ID)
-            .flags(gio::ApplicationFlags::FLAGS_NONE)
+            .flags(gio::ApplicationFlags::HANDLES_COMMAND_LINE)
             .build();
 
-        // The desktop launcher registers a "New Note" action that calls
-        // `mynote --new-note`; honor it by starting with a fresh note.
-        let start_new_note = std::env::args().any(|arg| arg == "--new-note");
+        let opts = Rc::new(Cell::new(CliOptions::default()));
 
         app.connect_startup(|app| {
             Self::load_css();
             Self::setup_accelerators(app);
         });
 
+        let opts_activate = opts.clone();
         app.connect_activate(move |app| {
+            let opts = opts_activate.take();
             let window_handle = MyNoteWindow::new(app);
-            window_handle.borrow_mut().set_start_new_note(start_new_note);
+
+            if opts.stress_rounds > 0 {
+                // Point storage at a throwaway dir so stress runs never touch
+                // real notes.
+                let tmp = std::env::temp_dir().join(format!("mynote_stress_{}", std::process::id()));
+                std::env::set_var("MYNOTE_DATA_DIR", tmp);
+            } else if opts.start_new_note {
+                window_handle.borrow_mut().set_start_new_note(true);
+            }
+
             window_handle.borrow().present();
+
+            if opts.stress_rounds > 0 {
+                MyNoteWindow::run_stress_test(window_handle, opts.stress_rounds);
+            }
+        });
+
+        let opts_cl = opts.clone();
+        app.connect_command_line(move |app, cmd_line| {
+            let args: Vec<String> = cmd_line
+                .arguments()
+                .iter()
+                .map(|s| s.to_string_lossy().into_owned())
+                .collect();
+
+            let mut parsed = CliOptions::default();
+            let mut i = 0;
+            while i < args.len() {
+                let a = &args[i];
+                if a == "--new-note" {
+                    parsed.start_new_note = true;
+                } else if a == "--stress" {
+                    if let Some(n) = args.get(i + 1).and_then(|v| v.parse::<u32>().ok()) {
+                        parsed.stress_rounds = n.max(4);
+                        i += 1;
+                    } else {
+                        parsed.stress_rounds = 60;
+                    }
+                }
+                i += 1;
+            }
+
+            opts_cl.set(parsed);
+            app.activate();
+            glib::ExitCode::SUCCESS
         });
 
         Self { app }

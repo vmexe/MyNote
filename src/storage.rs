@@ -8,6 +8,11 @@ pub struct Storage;
 
 impl Storage {
     pub fn get_data_dir() -> PathBuf {
+        if let Ok(override_dir) = std::env::var("MYNOTE_DATA_DIR") {
+            if !override_dir.is_empty() {
+                return PathBuf::from(override_dir);
+            }
+        }
         if let Some(data_dir) = dirs::data_dir() {
             data_dir.join("mynote")
         } else {

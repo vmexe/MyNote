@@ -74,7 +74,7 @@ pub struct MyNoteWindow {
     search_query: String,
     view_mode: ViewMode,
     is_updating_ui: Rc<Cell<bool>>,
-    save_timeout: Option<glib::SourceId>,
+    save_gen: Rc<Cell<u64>>,
 }
 
 pub type WindowHandle = Rc<RefCell<MyNoteWindow>>;
@@ -545,7 +545,7 @@ impl MyNoteWindow {
             search_query: String::new(),
             view_mode: initial_view_mode,
             is_updating_ui: Rc::new(Cell::new(false)),
-            save_timeout: None,
+            save_gen: Rc::new(Cell::new(0)),
         }));
 
         // Set up formatting actions
@@ -656,6 +656,107 @@ impl MyNoteWindow {
         if enabled {
             self.create_new_note();
         }
+    }
+
+    /// Stress-test driver. Drives every action and widget signal path in a
+    /// loop so that panics/crashes (double borrows, stale state, etc.) surface
+    /// during automated testing. Widgets are cloned out of the handle first so
+    /// their signals fire like real user events (no outstanding borrow).
+    pub fn run_stress_test(handle: WindowHandle, rounds: u32) {
+        Self::stress_round(handle, rounds, 0);
+    }
+
+    fn stress_round(handle: WindowHandle, total: u32, done: u32) {
+        if done >= total {
+            handle.borrow().window.close();
+            eprintln!("[stress] completed {} rounds without crash", done);
+            return;
+        }
+
+        // Round 1: widget-driven (fires real signals)
+        let (pin, trash_btn, restore_btn, del_btn, ve, vp, vs) = {
+            let s = handle.borrow();
+            (
+                s.pin_btn.clone(),
+                s.trash_btn.clone(),
+                s.restore_btn.clone(),
+                s.delete_perm_btn.clone(),
+                s.view_edit_btn.clone(),
+                s.view_preview_btn.clone(),
+                s.view_split_btn.clone(),
+            )
+        };
+        pin.set_active(!pin.is_active());
+        vp.set_active(true);
+        ve.set_active(true);
+        vs.set_active(true);
+        ve.set_active(true);
+
+        // Round 2: action-driven (routes through same handlers as shortcuts)
+        let win = handle.borrow().window.clone();
+        use gio::prelude::ActionGroupExt;
+        ActionGroupExt::activate_action(&win, "new_note", None);
+        ActionGroupExt::activate_action(&win, "toggle_pin", None);
+        ActionGroupExt::activate_action(&win, "toggle_preview", None);
+        ActionGroupExt::activate_action(&win, "save", None);
+        ActionGroupExt::activate_action(&win, "duplicate_note", None);
+        ActionGroupExt::activate_action(&win, "format_bold", None);
+        if done.is_multiple_of(3) {
+            trash_btn.emit_clicked();
+        } else if done % 3 == 1 {
+            restore_btn.emit_clicked();
+        } else {
+            trash_btn.emit_clicked();
+        }
+        let _ = del_btn;
+
+        // Round 3: logic paths directly against a stable clone
+        {
+            let mut s = handle.borrow_mut();
+            if s.active_note().is_some() {
+                s.duplicate_active_note();
+            }
+            s.on_title_changed(format!("Stress note {}", done));
+            s.on_tags_changed("#work, #test, #stress".to_string());
+            s.on_content_changed(format!(
+                "# Heading {}\n\n- [x] done\n- [ ] todo\n\n**bold** *italic* `code`\n\n```rust\nfn main() {{}}\n```\n\n> quote\n\n---\n",
+                done
+            ));
+            s.save_immediately();
+            s.schedule_save();
+        }
+
+        // Toggle filters through sidebar rows
+        {
+            let (all, fav, trash_row) = {
+                let s = handle.borrow();
+                (s.all_notes_row.clone(), s.favorites_row.clone(), s.trash_row.clone())
+            };
+            use libadwaita::prelude::ActionRowExt;
+            match done % 4 {
+                0 => ActionRowExt::activate(&all),
+                1 => ActionRowExt::activate(&fav),
+                2 => ActionRowExt::activate(&trash_row),
+                _ => ActionRowExt::activate(&all),
+            }
+        }
+
+        // Search
+        {
+            let search = {
+                let s = handle.borrow();
+                s.search_entry.clone()
+            };
+            match done % 3 {
+                0 => search.set_text("work"),
+                1 => search.set_text("nomatchxyz"),
+                _ => search.set_text(""),
+            }
+        }
+
+        glib::timeout_add_local_once(std::time::Duration::from_millis(4), move || {
+            Self::stress_round(handle, total, done + 1);
+        });
     }
 
     fn setup_signals(handle: WindowHandle) {
@@ -915,7 +1016,7 @@ impl MyNoteWindow {
         {
             let h = handle.clone();
             act_bold.connect_activate(move |_, _| {
-                h.borrow().insert_format("**", "**", "bold text");
+                h.borrow_mut().with_ui_guard(|win| win.insert_format("**", "**", "bold text"));
             });
         }
         window.add_action(&act_bold);
@@ -925,7 +1026,7 @@ impl MyNoteWindow {
         {
             let h = handle.clone();
             act_link.connect_activate(move |_, _| {
-                h.borrow().insert_format("[", "](https://example.com)", "link title");
+                h.borrow_mut().with_ui_guard(|win| win.insert_format("[", "](https://example.com)", "link title"));
             });
         }
         window.add_action(&act_link);
@@ -935,7 +1036,7 @@ impl MyNoteWindow {
         {
             let h = handle.clone();
             act_code.connect_activate(move |_, _| {
-                h.borrow().insert_format("```\n", "\n```", "code block");
+                h.borrow_mut().with_ui_guard(|win| win.insert_format("```\n", "\n```", "code block"));
             });
         }
         window.add_action(&act_code);
@@ -945,8 +1046,8 @@ impl MyNoteWindow {
         {
             let h = handle.clone();
             act_pin.connect_activate(move |_, _| {
-                let cur = h.borrow().pin_btn.is_active();
-                h.borrow().pin_btn.set_active(!cur);
+                let pin_btn = h.borrow().pin_btn.clone();
+                pin_btn.set_active(!pin_btn.is_active());
             });
         }
         window.add_action(&act_pin);
@@ -1071,6 +1172,13 @@ impl MyNoteWindow {
     pub fn active_note(&self) -> Option<Note> {
         let active_id = self.active_note_id.as_ref()?;
         self.notes.iter().find(|n| &n.id == active_id).cloned()
+    }
+
+    fn with_ui_guard<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
+        self.is_updating_ui.set(true);
+        let result = f(self);
+        self.is_updating_ui.set(false);
+        result
     }
 
     pub fn set_view_mode(&mut self, mode: ViewMode) {
@@ -1321,14 +1429,22 @@ impl MyNoteWindow {
 
     pub fn schedule_save(&mut self) {
         self.save_status_label.set_label("Saving...");
-        if let Some(source) = self.save_timeout.take() {
-            source.remove();
-        }
+
+        // Generation-based debounce. A new generation invalidates any still
+        // pending (not yet fired) save. We never call SourceId::remove() on a
+        // potentially already-fired timeout, which would panic.
+        let gen = self.save_gen.get().wrapping_add(1);
+        self.save_gen.set(gen);
 
         let notes_to_save = self.notes.clone();
         let status_label = self.save_status_label.clone();
+        let gen_ref = self.save_gen.clone();
 
-        let source = glib::timeout_add_local_once(std::time::Duration::from_millis(300), move || {
+        glib::timeout_add_local_once(std::time::Duration::from_millis(300), move || {
+            // A more recent save was scheduled after us; let it win.
+            if gen_ref.get() != gen {
+                return;
+            }
             if let Err(e) = Storage::save_notes(&notes_to_save) {
                 status_label.set_label(&format!("Save error: {}", e));
             } else {
@@ -1336,14 +1452,12 @@ impl MyNoteWindow {
                 status_label.set_label(&format!("Saved at {}", now_str));
             }
         });
-
-        self.save_timeout = Some(source);
     }
 
     pub fn save_immediately(&mut self) {
-        if let Some(source) = self.save_timeout.take() {
-            source.remove();
-        }
+        // Bump the generation so any pending debounced save is skipped.
+        self.save_gen.set(self.save_gen.get().wrapping_add(1));
+
         if let Err(e) = Storage::save_notes(&self.notes) {
             self.save_status_label.set_label(&format!("Save error: {}", e));
         } else {

@@ -1,6 +1,6 @@
 [package]
 name = "mynote"
-version = "1.0.0"
+version = "1.0.2"
 edition = "2021"
 authors = ["MyNote Open Source Community"]
 description = "A fast, lightweight, and super easy to use native Linux note-taking application"
